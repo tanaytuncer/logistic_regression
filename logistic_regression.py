@@ -1,5 +1,5 @@
 """
-Simple and multinomial Logistic Regression
+Simple and multinominal Logistic Regression
 Author: Tanay Tunçer
 
 """
@@ -8,16 +8,17 @@ import numpy as np
 
 class LogisticRegression():
 
-    def __init__(self, learning_rate = 0.01, epochs = 1000, feature_scaling = False, reg = False, lambda_ = 0.7, binary_class = True):
-        self.learning_rate = learning_rate
+    def __init__(self, epochs = 1000, feature_scaling = False, reg = False, learning_rate = 0.01, C = 0.01, binary_class = True):
         self.epochs = epochs
+        self.learning_rate = learning_rate
         self.w = None
         self.b = None
         self.reg = reg
-        self.lambda_ = lambda_
+        self.C = C
         self.binary_class = binary_class
         self.feature_scaling = feature_scaling
 
+    
     def linear_transformation(self, X, w, b):
        """
             Calculate linear function: x · w + b
@@ -30,11 +31,10 @@ class LogisticRegression():
        """ 
        return np.dot(X, self.w) + self.b
 
-    #@staticmethod
     def activation_function(self, z):
         """
             Calculate sigmoid or softmax function. 
-            The function differenciate beetween the sigmoid function for binary output and softmax function for multiclass outout.
+            The function differenciate beetween the sigmoid function for binary output and softmax function for multiclass output.
             Args:
                 z (ndarray): Logit
             Return 
@@ -52,10 +52,10 @@ class LogisticRegression():
                 y (ndarray): Actual output
                 h (ndarray): Predicted output 
             Return:
-                cost_value (scalar): Compute the total cost of execution.
+                Compute the total cost of execution (scalar)
         """
-        return  -1 * np.mean(y * (np.log(h) - (1 - y) * np.log(1 - h)))
-
+        return -np.mean(y * np.log(h) + (1 - y) * np.log(1 - h)) 
+           
     def gradient_descent(self, X, y, h):
         """
             Calculate gradients and execute gradient descent to compute weights and the bias term.
@@ -72,12 +72,11 @@ class LogisticRegression():
             dw = (1/m) * np.dot(X.T, (h - y))                     
             db = (1/m) * np.sum(h - y)
         else:
-            dw = ((1/m) * np.dot(X.T, (h - y))) + np.dot(self.lambda_, self.w)                   
+            dw = ((1/m) * np.dot(X.T, (h - y))) + np.dot(self.learning_rate, self.w)                   
             db = (1/m) * np.sum(h - y)
-        
+
         self.w = self.w - (dw * self.learning_rate)
         self.b = self.b - (db * self.learning_rate)
-
 
         return self.w, self.b
         
@@ -90,27 +89,28 @@ class LogisticRegression():
         """
                  
         m, n = X.shape 
-        self.w = np.random.rand(n) #np.zeros(n)
-        self.b = 0
+        self.w = np.random.rand(n)
+        self.b = 0.
         l_wb = np.zeros([self.epochs, 2])
 
         X = ((X.T - np.mean(X, axis = 1)) / np.std(X, axis = 1)).T if self.feature_scaling == True else X
         
-
         for i in range(self.epochs):
             h = self.activation_function(self.linear_transformation(X, self.w, self.b))
             self.w, self.b = self.gradient_descent(X, y, h)
-
+            
             if self.reg == False:
                 l_wb[i] = [i, self.cost_function(y, h)] 
             else: 
-                l_wb[i] = [i, (self.cost_function(y, h) + ((self.lambda_ / (2*m)) * np.sum(self.w ** 2)))]
-                            
+                l_wb[i] = [i, self.cost_function(y, h) + ((self.C / (2*m)) * np.sum(np.square(self.w)**2))]
+                                                                           
             if i % (self.epochs / 10) == 0:
-                print(f'The cost after epoch number {i} is: {np.round(l_wb[i][1], 3)}')
-
-
-        return l_wb
+                print(f'The cost after epoch number {i} is: {np.round(l_wb[i][1], 6)}')
+            
+        h = np.where(h > 0.5, 1, 0)
+            
+        return l_wb, h
+        
 
     def predict(self, X):
         """
@@ -120,11 +120,14 @@ class LogisticRegression():
             Return:
                 y: Output predicted y label for input data. 
         """ 
+
         X = ((X.T - np.mean(X, axis = 1)) / np.std(X, axis = 1)).T if self.feature_scaling == True else X
+
         predictions = self.activation_function(self.linear_transformation(X, self.w, self.b))
+
         if self.binary_class == True:
-            h = [1 if prediction > 0.5 else 0 for prediction in predictions]
+            h = np.where(predictions > 0.5, 1, 0)
         else:
-            h = np.argmax(predictions, axis = 1)
+            h = np.argmax(predictions, axis = 1) 
 
         return h
